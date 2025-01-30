@@ -24,3 +24,16 @@ export interface AnalysisResult {
   data?: DesignAnalysis;
   error?: string;
 }
+
+export interface AnalysisHistory {
+  analyses: DesignAnalysis[];
+  totalCount: number;
+  pageCount: number;
+}
+
+export interface HistoryQueryParams {
+  page?: number;
+  limit?: number;
+  sortBy?: "date" | "score";
+  order?: "asc" | "desc";
+}

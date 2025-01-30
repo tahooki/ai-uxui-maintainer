@@ -2,6 +2,7 @@
 
 import { AnalysisResult } from "@/components/AnalysisResult";
 import type { DesignAnalysis } from "@/lib/types/analysis";
+import Link from "next/link";
 import { useState } from "react";
 
 export default function Home() {
@@ -39,7 +40,12 @@ export default function Home() {
 
   return (
     <main className="container mx-auto px-4 py-8">
-      <h1 className="text-4xl font-bold mb-8">AI UI/UX Analyzer</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-4xl font-bold">AI UI/UX Analyzer</h1>
+        <Link href="/history" className="text-blue-500 hover:underline">
+          View History
+        </Link>
+      </div>
 
       <div className="mb-8">
         <div className="flex gap-4">
