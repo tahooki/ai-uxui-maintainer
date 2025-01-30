@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Analysis {
+  id        String   @id @default(uuid())
+  url       String
+  screenshot String
+  analysis  Json
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+  improvements Improvement[]
+  
+  @@map("analyses")
+}
+
+model Improvement {
+  id          String   @id @default(uuid())
+  analysisId  String
+  analysis    Analysis @relation(fields: [analysisId], references: [id])
+  originalCSS String
+  improvedCSS String
+  improvements Json
+  score       Float
+  timestamp   DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@map("improvements")
+}
+
+model LighthouseReport {
+  id         String   @id @default(uuid())
+  url        String
+  metrics    Json
+  audits     Json
+  htmlReport String
+  timestamp  DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@map("lighthouse_reports")
+}
+
+model PerformanceMetric {
+  id                String   @id @default(uuid())
+  url               String
+  lighthouseScore   Float
+  accessibilityScore Float
+  loadTime          Int
+  uiScore           Float
+  timestamp         DateTime @default(now())
+  createdAt         DateTime @default(now())
+
+  @@map("performance_metrics")
+}
+
+model Alert {
+  id        String   @id @default(uuid())
+  url       String
+  type      String
+  severity  String
+  message   String
+  resolved  Boolean  @default(false)
+  timestamp DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@map("alerts")
+} 

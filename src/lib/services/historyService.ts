@@ -1,49 +1,47 @@
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/db/prisma";
+import { supabase } from "@/lib/db/supabase";
 import { AnalysisHistory, HistoryQueryParams } from "../types/analysis";
 
 export class HistoryService {
-  private supabase;
-
-  constructor() {
-    this.supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    );
-  }
-
   async getAnalysisHistory({
     page = 1,
     limit = 10,
     sortBy = "date",
     order = "desc",
   }: HistoryQueryParams): Promise<AnalysisHistory> {
-    const offset = (page - 1) * limit;
+    const skip = (page - 1) * limit;
 
-    // Count total records
-    const { count } = await this.supabase
-      .from("analyses")
-      .select("*", { count: "exact", head: true });
+    // Prisma를 사용하여 분석 기록 조회
+    const [analyses, totalCount] = await Promise.all([
+      prisma.analysis.findMany({
+        skip,
+        take: limit,
+        orderBy: {
+          [sortBy === "date" ? "timestamp" : "analysis"]: order,
+        },
+        include: {
+          improvements: true,
+        },
+      }),
+      prisma.analysis.count(),
+    ]);
 
-    // Get paginated records
-    const { data: analyses, error } = await this.supabase
-      .from("analyses")
+    // Supabase를 사용하여 실시간 메트릭 데이터 조회
+    const { data: metrics } = await supabase
+      .from("performance_metrics")
       .select("*")
-      .order(
-        sortBy === "date" ? "timestamp" : "analysis->accessibility->score",
-        {
-          ascending: order === "asc",
-        }
-      )
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      throw new Error("Failed to fetch analysis history");
-    }
+      .in(
+        "analysis_id",
+        analyses.map((a) => a.id)
+      );
 
     return {
-      analyses: analyses || [],
-      totalCount: count || 0,
-      pageCount: Math.ceil((count || 0) / limit),
+      analyses: analyses.map((analysis) => ({
+        ...analysis,
+        metrics: metrics?.find((m) => m.analysis_id === analysis.id) || null,
+      })),
+      totalCount,
+      pageCount: Math.ceil(totalCount / limit),
     };
   }
 }

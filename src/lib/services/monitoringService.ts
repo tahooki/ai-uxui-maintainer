@@ -1,33 +1,23 @@
-import { createClient } from "@supabase/supabase-js";
+import { prisma } from "@/lib/db/prisma";
+import { supabase } from "@/lib/db/supabase";
 import { Alert, MonitoringData, PerformanceMetrics } from "../types/monitoring";
 
 export class MonitoringService {
-  private supabase;
   private static ALERT_THRESHOLDS = {
     lighthouse: 0.7,
     accessibility: 0.8,
     loadTime: 3000, // 3초
   };
 
-  constructor() {
-    this.supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_KEY!
-    );
-  }
-
   async getMonitoringData(url: string): Promise<MonitoringData> {
-    // 최신 메트릭 데이터 조회
-    const { data: currentMetrics } = await this.supabase
-      .from("performance_metrics")
-      .select("*")
-      .eq("url", url)
-      .order("timestamp", { ascending: false })
-      .limit(1)
-      .single();
+    // Prisma로 기본 메트릭 데이터 조회
+    const currentMetrics = await prisma.performanceMetric.findFirst({
+      where: { url },
+      orderBy: { timestamp: "desc" },
+    });
 
-    // 히스토리 데이터 조회 (최근 24시간)
-    const { data: historicalData } = await this.supabase
+    // Supabase로 실시간 데이터 조회
+    const { data: historicalData } = await supabase
       .from("performance_metrics")
       .select("*")
       .eq("url", url)
@@ -37,16 +27,19 @@ export class MonitoringService {
       )
       .order("timestamp", { ascending: true });
 
-    // 활성화된 알림 조회
-    const { data: alerts } = await this.supabase
-      .from("alerts")
-      .select("*")
-      .eq("url", url)
-      .eq("resolved", false)
-      .order("timestamp", { ascending: false });
+    // 알림은 Prisma로 관리
+    const alerts = await prisma.alert.findMany({
+      where: {
+        url,
+        resolved: false,
+      },
+      orderBy: {
+        timestamp: "desc",
+      },
+    });
 
     return {
-      currentMetrics,
+      currentMetrics: currentMetrics!,
       historicalData: historicalData || [],
       alerts: alerts || [],
     };
@@ -96,9 +89,14 @@ export class MonitoringService {
       });
     }
 
-    // 알림 저장
     if (alerts.length > 0) {
-      await this.supabase.from("alerts").insert(alerts);
+      // Prisma로 알림 저장
+      await prisma.alert.createMany({
+        data: alerts,
+      });
+
+      // Supabase로 실시간 알림 전송
+      await supabase.from("alerts").insert(alerts);
     }
   }
 }
